@@ -1,10 +1,7 @@
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 
 def apply_watermark(image_path, output_path, text=None, logo_path=None, position="bottom_right", opacity=0.5):
-    """
-    Menambahkan watermark teks atau logo.
-    Position: 'center' atau 'bottom_right'
-    """
+    # Menambahkan watermark teks atau logo.
     base_image = Image.open(image_path).convert("RGBA")
     width, height = base_image.size
     
@@ -12,7 +9,7 @@ def apply_watermark(image_path, output_path, text=None, logo_path=None, position
     watermark_layer = Image.new("RGBA", base_image.size, (0,0,0,0))
     
     if logo_path:
-        # --- Logic Logo Watermark ---
+        # Logic Logo Watermark
         logo = Image.open(logo_path).convert("RGBA")
         
         # Resize logo (maksimal 20% dari lebar gambar asli)

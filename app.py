@@ -18,7 +18,7 @@ app.config['RESULT_FOLDER'] = RESULT_FOLDER
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        # 1. Handle File Upload
+        # --- LOGIKA ENCODE (YANG SUDAH ADA) ---
         if 'image_file' not in request.files:
             return "No file part", 400
         file = request.files['image_file']
@@ -29,12 +29,10 @@ def index():
         original_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(original_path)
 
-        # Ambil Input User
         stego_msg = request.form.get('stego_message', '')
         watermark_text = request.form.get('watermark_text', '')
         watermark_pos = request.form.get('watermark_pos', 'bottom_right')
         
-        # Handle Logo Watermark Upload
         logo_file = request.files.get('watermark_logo')
         logo_path = None
         if logo_file and logo_file.filename != '':
@@ -42,33 +40,26 @@ def index():
             logo_path = os.path.join(app.config['UPLOAD_FOLDER'], logo_filename)
             logo_file.save(logo_path)
 
-        # --- PROSES 1: STEGANOGRAFI ---
-        stego_filename = f"stego_{os.path.splitext(filename)[0]}.png" # Harus PNG
+        # Proses Stego
+        stego_filename = f"stego_{os.path.splitext(filename)[0]}.png"
         stego_output_path = os.path.join(app.config['RESULT_FOLDER'], stego_filename)
         
         try:
             if stego_msg:
                 utils_stego.encode_lsb(original_path, stego_msg, stego_output_path)
             else:
-                # Jika tidak ada pesan, copy saja gambar asli
                 from PIL import Image
                 Image.open(original_path).save(stego_output_path)
         except Exception as e:
             print(f"Stego Error: {e}")
 
-        # --- PROSES 2: WATERMARKING ---
+        # Proses Watermark
         wm_filename = f"wm_{os.path.splitext(filename)[0]}.png"
         wm_output_path = os.path.join(app.config['RESULT_FOLDER'], wm_filename)
         
         try:
-            # Prioritas: Logo dulu, kalau kosong baru Text
             utils_watermark.apply_watermark(
-                original_path, 
-                wm_output_path, 
-                text=watermark_text, 
-                logo_path=logo_path, 
-                position=watermark_pos,
-                opacity=0.6
+                original_path, wm_output_path, text=watermark_text, logo_path=logo_path, position=watermark_pos
             )
         except Exception as e:
             print(f"Watermark Error: {e}")
@@ -77,9 +68,35 @@ def index():
                                original=filename,
                                stego=stego_filename,
                                watermark=wm_filename,
-                               processed=True)
+                               processed=True,
+                               active_tab='encode') # Tab aktif tetap encode
 
-    return render_template('index.html', processed=False)
+    return render_template('index.html', processed=False, active_tab='encode')
+
+# --- LOGIKA DECODE (BARU) ---
+@app.route('/decode', methods=['POST'])
+def decode():
+    if 'image_file_decode' not in request.files:
+        return "No file part", 400
+    file = request.files['image_file_decode']
+    if file.filename == '':
+        return "No selected file", 400
+
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+
+    decoded_msg = "Pesan tidak ditemukan atau format salah."
+    try:
+        decoded_msg = utils_stego.decode_lsb(filepath)
+    except Exception as e:
+        decoded_msg = f"Error: {str(e)}"
+
+    return render_template('index.html', 
+                           decoded_message=decoded_msg, 
+                           processed=False, # Supaya panel kanan menampilkan hasil decode
+                           decode_mode=True,
+                           active_tab='decode') # Tab aktif pindah ke decode
 
 @app.route('/download/<path:filename>')
 def download_file(filename):
